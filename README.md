@@ -37,3 +37,5 @@ Todas as regras que obtemos da mineração de regras de associação formam um g
 Os clubes de futebol individuais são os nós do gráfico e cada regra "de ==> para" é uma aresta (edge) do gráfico de rede.
 
 Em R, os gráficos de rede podem ser visualizados bem por meio do pacote visNetwork.
+
+Este mini projeto é capítulo 04 chamado de "Big Data na prática 3", referente ao curso Big Data Analytics with R e Microsoft Azure Machine Learning na Data Science Academy.
