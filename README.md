@@ -1,6 +1,8 @@
 # Mineração de Regra de Associação
 
 Este mini projeto é capítulo 04 chamado de "Big Data na prática 3", referente ao curso Big Data Analytics with R e Microsoft Azure Machine Learning na Data Science Academy.
+
+Obs.: Alguns arquivos '.CSV' não puderam ser carregados, devido ao seu tamanho, então é necessário fazer o download no link abaixo.
 ____________________________________________________________________________________________________________________________________
 
 Utilizando o dataset oferecido pelo Kaggle: https://www.kaggle.com/hugomathien/soccer, vamos analisar dados de clubes de futebol, usando a linguagem estatistica R.
