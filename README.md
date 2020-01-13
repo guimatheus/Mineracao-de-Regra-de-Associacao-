@@ -1,5 +1,8 @@
 # Mineração de Regra de Associação
 
+Este mini projeto é capítulo 04 chamado de "Big Data na prática 3", referente ao curso Big Data Analytics with R e Microsoft Azure Machine Learning na Data Science Academy.
+____________________________________________________________________________________________________________________________________
+
 Utilizando o dataset oferecido pelo Kaggle: https://www.kaggle.com/hugomathien/soccer, vamos analisar dados de clubes de futebol, usando a linguagem estatistica R.
 
 Embora tenha mais de 20 anos, o Market Basket Analysis (MBA) (ou Mineração de Regras de Associação) ainda pode ser uma técnica muito útil para obter insights em grandes conjuntos de dados transacionais. 
@@ -37,5 +40,3 @@ Todas as regras que obtemos da mineração de regras de associação formam um g
 Os clubes de futebol individuais são os nós do gráfico e cada regra "de ==> para" é uma aresta (edge) do gráfico de rede.
 
 Em R, os gráficos de rede podem ser visualizados bem por meio do pacote visNetwork.
-
-Este mini projeto é capítulo 04 chamado de "Big Data na prática 3", referente ao curso Big Data Analytics with R e Microsoft Azure Machine Learning na Data Science Academy.
