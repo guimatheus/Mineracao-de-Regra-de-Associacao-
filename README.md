@@ -2,6 +2,8 @@
 
 Este mini projeto é referente ao capítulo 04 chamado de "Big Data na prática 3", referente ao curso Big Data Analytics with R e Microsoft Azure Machine Learning na Data Science Academy.
 
+Ao invés de utilizar a conexão no banco de dados SQL Lite conforme instrução da DSA, eu fiz a conexão e depois exportei os data frames para CSV utilizando a funcão "write.csv" e posteriormente carregar todos os dados através desses arquivos, assim não é mais necessário utilizar o banco de dados SQL Lite para executar este projeto.
+
 Obs.: Alguns arquivos '.CSV' não puderam ser carregados, devido ao seu tamanho, então é necessário fazer o download no link abaixo.
 ____________________________________________________________________________________________________________________________________
 
