@@ -1,0 +1,262 @@
+---
+title: "Mineração de Regra de Associação"
+author: "Guilherme Matheus"
+date: "13/01/2020"
+output: html_document
+---
+
+Usaremos um dataset oferecido pelo Kaggle: https://www.kaggle.com/hugomathien/soccer
+
+O dataset contêm cerca de 25.000 partidas de onze ligas de futebol europeias a partir da temporada 2008/2009 até a temporada 2015/2016. 
+
+Os dados estão disponibilizados em um banco de dados SQLITE mas resolvi fazer diferente, e transformar as tabelas do banco em arquivo CSV.
+
+**Pacotes necessários: **
+```{r eval=FALSE, warning=FALSE, paged.print=FALSE}
+install.packages("dplyr")
+install.packages("tidyr")
+install.packages("arules")
+install.packages("arulesSequences")
+install.packages("readr")
+install.packages("visNetwork")
+install.packages("igraph")
+install.packages("lubridate")
+install.packages("DT")
+```
+
+```{r warning=FALSE, message=FALSE}
+library(dplyr)
+library(tidyr)
+library(arules)
+library(Matrix)
+library(arulesSequences)
+library(readr)
+library(stringr)
+library(visNetwork)
+library(igraph)
+library(lubridate)
+library(DT)
+library(data.table)
+```
+
+**Carregando os arquivos CSV**  
+
+● *1º arquivo: "Player"*
+```{r}
+players <- read.csv2("Player.csv", sep = ",")
+```
+
+● *2º arquivo: "Player_Attributes"*
+```{r}
+players_stats <- fread("Player_Attributes.csv")
+```
+
+● *3º arquivo: "Team"*
+```{r}
+teams <- read.csv2("Team.csv", sep = ",")
+```
+
+● *4º arquivo: "League"*
+```{r}
+league <- fread("League.csv")
+```
+
+● *5º arquivo: "Match"*
+```{r message=FALSE}
+Matches <- fread("Match.csv")
+```
+
+**Substituindo espaço por underline nos nome muito longos**
+```{r}
+teams$team_long_name = str_replace_all(teams$team_long_name, "\\s", "_")
+teams$team_long_name = str_replace_all(teams$team_long_name, "\\.", "_")
+teams$team_long_name = str_replace_all(teams$team_long_name, "-", "_")
+```
+
+```{r}
+head(teams)
+```
+
+```{r eval=FALSE}
+View(teams)
+```
+
+**Agrupando as equipes por país**
+```{r message=FALSE}
+CountryClub = Matches %>% 
+  group_by(home_team_api_id,country_id) %>% 
+  summarise(n=n()) %>% 
+  left_join(league) %>%
+  left_join(teams, by=c("home_team_api_id" = "team_api_id"))
+```
+
+**Preparando os dados para mineração das regras de associação**  
+
+**Os jogadores estão em colunas separadas, mas precisamos deles empilhados em uma coluna**
+```{r}
+tmp = Matches %>% 
+  select(
+    season, 
+    home_team_api_id, 
+    home_player_1:home_player_11
+  )%>%
+  gather(
+    player, 
+    player_api_id, 
+    -c(season, home_team_api_id)
+  ) %>%
+  group_by(player_api_id, home_team_api_id ) %>% 
+  summarise(season = min(season))
+```
+
+**Unindo dados de jogador e clube**
+```{r message=FALSE}
+playerClubSequence = left_join(
+  tmp,
+  players
+  ) %>% 
+  left_join(
+    teams, 
+    by=c("home_team_api_id"="team_api_id")
+  )
+```
+
+```{r}
+playerClubSequence = playerClubSequence %>% 
+  filter(
+    !is.na(player_name), !is.na(team_short_name)
+  )  %>%
+  arrange(
+    player_api_id, 
+    season
+  )
+```
+
+**Adicionando um número sequencial por jogador**
+```{r}
+playerClubSequence$seqnr = ave( playerClubSequence$player_api_id, playerClubSequence$player_api_id, FUN = seq_along)
+playerClubSequence$size = 1
+```
+
+**Mineração de sequências com algoritmo cSPade do pacote arulesSequences**  
+
+**Grava o conjunto de dados em um arquivo txt para facilitar a manipulação da função read_basket em arulesSequence para criar um objeto de transação**
+```{r}
+write_delim( 
+  playerClubSequence %>% select( c(player_api_id, seqnr, size, team_long_name)) ,
+  delim ="\t", path = "player_transactions.txt", col_names = FALSE
+  )
+```
+
+**Agora importamos as transações registradas no item anterior**
+```{r}
+playerstrxs <- read_baskets("player_transactions.txt", sep = "[ \t]+",info =  c("sequenceID","eventID","SIZE"))
+summary(playerstrxs)
+```
+
+**Executar mineração de sequência, por enquanto apenas com comprimento de duas sequências**
+```{r}
+playersClubSeq <- cspade(
+  playerstrxs, 
+  parameter = list(support = 0.00010, maxlen=2), 
+  control   = list(verbose = TRUE)
+)
+```
+
+```{r}
+summary(playersClubSeq)
+```
+
+**Fazendo Data Wrangling para colocar os resultados do cspade em um organizado conjunto de dados que é adequado para a visNetwork. A visNetwork precisa de dois conjuntos de dados:**  
+
+**Um conjunto de dados com as arestas "de --> para" e um conjunto de dados com os nós exclusivos**
+```{r}
+seqResult = as(playersClubSeq, "data.frame")
+seqResult = seqResult %>% 
+  mutate(
+    sequence = as.character(sequence)
+  )
+
+seqResult = bind_cols(
+  seqResult,
+  as.data.frame(
+    str_split_fixed(seqResult$sequence, pattern =",", 2), 
+    stringsAsFactors = FALSE)
+  )
+```
+
+```{r}
+seqResult$from = str_extract_all(seqResult$V1,"\\w+", simplify = TRUE)[,1] 
+seqResult$to   = str_extract_all(seqResult$V2,"\\w+",simplify = TRUE)[,1]
+```
+
+```{r}
+seqResult$width = exp(3000*seqResult$support)
+seqResult = seqResult %>% filter(V2 !="")
+seqResult$title = paste(seqResult$sequence, "<br>", round(100*seqResult$support,2), "%")
+```
+
+```{r}
+seqResult$support_perc = paste(sprintf("%.4f", 100*seqResult$support), "%")
+```
+
+**Criando o dataframe com os nodes**
+```{r}
+nodes = unique(c(seqResult$from, seqResult$to))
+nodesData = data.frame(id = unique(nodes), title = unique(nodes), label = unique(nodes), stringsAsFactors = FALSE) %>%
+  left_join(CountryClub, by = c("id"="team_long_name")) %>% 
+  rename(group = name)
+```
+
+```{r eval=FALSE}
+View(nodes)
+```
+
+**Calcula as medidas de centralidade de betweeness usando o igraph, para que possamos ter tamanhos diferentes de nós no gráfico de rede**
+```{r}
+transferGraph = graph_from_data_frame(seqResult[,c(5,6)], directed = TRUE)
+```
+
+```{r}
+tmp = betweenness(transferGraph)
+Clubs_betweenness = data.frame(id = names(tmp), value = tmp, stringsAsFactors = FALSE)
+nodesData = nodesData %>% 
+  left_join(Clubs_betweenness) %>%
+  mutate(title = paste(id, "betweeness ", round(value))) %>%
+  arrange(id)
+```
+
+**Criando a rede interativa**  
+
+**Preparando o dataframe final e removendo duplicidades**
+```{r}
+nodes = nodesData
+nodes = nodes[!duplicated(nodes$id),]
+```
+
+**Cria a rede**
+```{r}
+visNetwork(nodes, edges = seqResult, width = 900, height = 700) %>%
+  visNodes(size = 10) %>%
+  visLegend() %>%
+  visEdges(smooth = FALSE) %>%
+  visOptions(highlightNearest = TRUE, nodesIdSelection = TRUE) %>%
+  visInteraction(navigationButtons = TRUE) %>%
+  visEdges(arrows = 'from') %>%
+  visPhysics(
+    solver = "barnesHut",
+    maxVelocity = 35,
+    forceAtlas2Based = list(gravitationalConstant = -6000)
+  )
+```
+
+**Cria a tabela final para suportar a análise**
+```{r}
+seqResult$Ntransctions = seqResult$support*10542
+DT::datatable(
+  seqResult[,c(5,6,9,10)], 
+  rownames = FALSE,
+  options = list(
+    pageLength=25)
+  )
+```
